@@ -14,6 +14,7 @@ using Autodesk.RevitAddIns;
 using Dynamo.NUnit.Tests;
 using Microsoft.Practices.Prism;
 using NDesk.Options;
+using NUnit.Framework.Constraints;
 
 namespace RTF.Framework
 {
@@ -57,7 +58,7 @@ namespace RTF.Framework
         private bool journalFinished;
         private GroupingType groupingType = GroupingType.Fixture;
         private List<ITestData> completedTestCases = new List<ITestData>();
- 
+
         #endregion
 
         #region internal properties
@@ -99,9 +100,9 @@ namespace RTF.Framework
         /// <summary>
         /// The path of the RTF addin file.
         /// </summary>
-        public string AddinPath 
+        public string AddinPath
         {
-            get{return Path.Combine(WorkingDirectory, "RevitTestFramework.addin");}
+            get { return Path.Combine(WorkingDirectory, "RevitTestFramework.addin"); }
         }
 
         /// <summary>
@@ -418,7 +419,7 @@ namespace RTF.Framework
                     {
                         var fileName = Path.GetFileName(file);
                         var destination = Path.Combine(WorkingDirectory, fileName);
-                        File.Copy(file,destination , true);
+                        File.Copy(file, destination, true);
                         CopiedAddins.Add(fileName);
 
                         //modify the copied addin so that the assembly paths are fully qualified
@@ -566,7 +567,7 @@ namespace RTF.Framework
             // Run by Fixture
             if (!String.IsNullOrEmpty(Fixture))
             {
-                var fixData = assData.SelectMany(a=>a.Fixtures).FirstOrDefault(f => f.Name == Fixture);
+                var fixData = assData.SelectMany(a => a.Fixtures).FirstOrDefault(f => f.Name == Fixture);
                 if (fixData != null)
                 {
                     ((IExcludable)fixData).ShouldRun = true;
@@ -585,7 +586,7 @@ namespace RTF.Framework
             // Run by category
             else if (!String.IsNullOrEmpty(Category))
             {
-                var catData = assData.SelectMany(a=>a.Categories).
+                var catData = assData.SelectMany(a => a.Categories).
                     FirstOrDefault(c => c.Name == Category);
                 if (catData != null)
                 {
@@ -629,7 +630,7 @@ namespace RTF.Framework
                     foreach (var test in runnable.Where(test => File.Exists(test.JournalPath)))
                     {
                         File.Delete(test.JournalPath);
-                    } 
+                    }
                 }
 
                 var allTests = GetAllTests();
@@ -687,7 +688,7 @@ namespace RTF.Framework
         public IEnumerable<ITestData> GetRunnableTests()
         {
             var runnable = Assemblies.
-                SelectMany(a => a.Fixtures.SelectMany(f=>f.Tests)).
+                SelectMany(a => a.Fixtures.SelectMany(f => f.Tests)).
                 Where(t => t.ShouldRun == true);
 
             return runnable;
@@ -728,7 +729,7 @@ namespace RTF.Framework
                     a =>
                         a.Fixtures.Cast<FixtureData>()
                             .SelectMany(f => f.Tests.Cast<TestData>().Where(t => t.ShouldRun == true))).ToList();
-            
+
             runner.SelectionHints = selectedTests.Select(t => new SelectionHint(t.Fixture.Assembly.Name, t.Fixture.Name, t.Name)).ToList();
 
             using (var writer = new StreamWriter(filePath))
@@ -751,8 +752,8 @@ namespace RTF.Framework
 
                 using (var reader = new StreamReader(filePath))
                 {
-                    var serializer = new XmlSerializer(typeof (Runner));
-                    runner = (Runner) serializer.Deserialize(reader);
+                    var serializer = new XmlSerializer(typeof(Runner));
+                    runner = (Runner)serializer.Deserialize(reader);
                 }
 
                 runner.Initialize();
@@ -763,8 +764,8 @@ namespace RTF.Framework
             }
             catch (Exception ex)
             {
-                Console.WriteLine("ERROR: Failed to initialize test runner.");
-                Console.WriteLine(ex.Message);
+                Console.Error.WriteLine("ERROR: Failed to initialize test runner.");
+                Console.Error.WriteLine(ex.Message);
                 return null;
             }
         }
@@ -789,7 +790,7 @@ namespace RTF.Framework
                 return;
             }
 
-            Assemblies.ToList().ForEach(a=>a.ShouldRun = false);
+            Assemblies.ToList().ForEach(a => a.ShouldRun = false);
 
             // The SelectionHints that are deserialized are only hints.
             // There's a chance the assembly no longer contains a fixture
@@ -801,7 +802,7 @@ namespace RTF.Framework
             foreach (var asmHintGroup in asmHints)
             {
                 var foundAsm = Assemblies.FirstOrDefault(a => a.Name == asmHintGroup.Key);
-                if(foundAsm == null)
+                if (foundAsm == null)
                     continue;
 
                 var fixHints = asmHintGroup.GroupBy(g => g.FixtureName);
@@ -865,7 +866,7 @@ namespace RTF.Framework
 
             if (Products == null || !Products.Any())
             {
-                if(String.IsNullOrEmpty(RevitPath) || !File.Exists(RevitPath))
+                if (String.IsNullOrEmpty(RevitPath) || !File.Exists(RevitPath))
                     throw new ArgumentException("No appropriate Revit versions found on this machine for testing.");
             }
 
@@ -1028,7 +1029,7 @@ namespace RTF.Framework
             Console.WriteLine("Running {0}", journalPath);
             var process = new Process { StartInfo = startInfo };
             process.Start();
-            
+
             if (!WaitForTestsToComplete(process))
             {
                 var tests = GetRunnableTests();
@@ -1109,7 +1110,7 @@ namespace RTF.Framework
                 {
                     if (consoleMsg.Type == ConsoleMessageType.ErrorOut)
                     {
-                        Console.WriteLine($"UT: ERROR: {consoleMsg.Text}");
+                        Console.Error.WriteLine($"UT: ERROR: {consoleMsg.Text}");
                     }
                     else
                     {
@@ -1118,11 +1119,14 @@ namespace RTF.Framework
                 }
                 else if (msgResult.Message is TestResultMessage testResultMsg)
                 {
-                    Console.WriteLine($"{testResultMsg.Result}: {testResultMsg.TestCaseName} in {testResultMsg.FixtureName}");
+                    if (((TestResultMessage)msgResult.Message).Result == "Failure")
+                        Console.Error.WriteLine($"{testResultMsg.Result}: {testResultMsg.TestCaseName} in {testResultMsg.FixtureName}");
+                    else
+                        Console.WriteLine($"{testResultMsg.Result}: {testResultMsg.TestCaseName} in {testResultMsg.FixtureName}");
 
                     if (!string.IsNullOrEmpty(testResultMsg.StackTrace))
                     {
-                        Console.WriteLine($"{testResultMsg.StackTrace}");
+                        Console.Error.WriteLine($"{testResultMsg.StackTrace}");
                     }
 
                     Console.WriteLine();
@@ -1208,10 +1212,10 @@ namespace RTF.Framework
         private static resultType GetInitializedResultType(string testAssembly)
         {
             var result = new resultType
-                                {
-                                    name = testAssembly,
-                                    testsuite = CreateTestSuiteType("DynamoTestFrameworkTests")
-                                };
+            {
+                name = testAssembly,
+                testsuite = CreateTestSuiteType("DynamoTestFrameworkTests")
+            };
 
             result.date = DateTime.Now.ToString("yyyy-MM-dd");
             result.time = DateTime.Now.ToString("HH:mm:ss");
@@ -1347,7 +1351,7 @@ namespace RTF.Framework
         /// </summary>
         /// <param name="ad"></param>
         /// <param name="continuous"></param>
-        private void 
+        private void
             SetupAssemblyTests(IAssemblyData ad, bool continuous = false)
         {
             if (ad.ShouldRun == false)
@@ -1384,8 +1388,8 @@ namespace RTF.Framework
         /// <param name="td"></param>
         /// <param name="continuous"></param>
         private bool SetupIndividualTest(
-            ITestData td, 
-            bool continuous = false, 
+            ITestData td,
+            bool continuous = false,
             ModelSemantics modelSemantics = ModelSemantics.Open | ModelSemantics.Close)
         {
             if (td.ShouldRun == false)
@@ -1444,7 +1448,7 @@ namespace RTF.Framework
                     td.TestStatus = TestStatus.NotRunnable;
                     TestFailed?.Invoke(td, testError, string.Empty);
 
-                    Console.WriteLine(testError);
+                    Console.Error.WriteLine(testError);
                 }
 
                 return false;
@@ -1584,7 +1588,7 @@ namespace RTF.Framework
 
                 var ourTests = FindOutTestCasesRelatedToTestData(results, td);
 
-                if (ourTests==null || !ourTests.Any())
+                if (ourTests == null || !ourTests.Any())
                 {
                     return;
                 }
@@ -1766,9 +1770,9 @@ namespace RTF.Framework
 
                 RevitProduct product = null;
                 String revitDirectory = "";
-                if(Products == null || !Products.Any())
+                if (Products == null || !Products.Any())
                 {
-                    if(!String.IsNullOrEmpty(RevitPath) && File.Exists(RevitPath))
+                    if (!String.IsNullOrEmpty(RevitPath) && File.Exists(RevitPath))
                         revitDirectory = Path.GetDirectoryName(RevitPath);
                 }
                 else
@@ -1814,8 +1818,8 @@ namespace RTF.Framework
             }
             catch (Exception e)
             {
-                Console.WriteLine("ERROR: The specified assembly could not be loaded for testing. Try adding some additional resolution paths so RTF can find referenced assemblies.");
-                Console.WriteLine($"ERROR: {e.Message}");
+                Console.Error.WriteLine("ERROR: The specified assembly could not be loaded for testing. Try adding some additional resolution paths so RTF can find referenced assemblies.");
+                Console.Error.WriteLine($"ERROR: {e.Message}");
 
                 return null;
             }

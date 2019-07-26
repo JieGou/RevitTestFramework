@@ -21,17 +21,14 @@ namespace RTF.Applications
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Console.Error.WriteLine(ex.Message);
             }
         }
 
         private static void Run()
         {
             var assData = runner.Assemblies.FirstOrDefault();
-            if (assData == null)
-            {
-                return;
-            }
+            if (assData == null) return;
 
             runner.StartServer();
             if (runner.SetupTests())
@@ -40,7 +37,7 @@ namespace RTF.Applications
             }
             else
             {
-                Console.WriteLine("ERROR: No tests were run due to configuration problems");
+                Console.Error.WriteLine("ERROR: No tests were run due to configuration problems");
             }
             runner.EndServer();
         }
